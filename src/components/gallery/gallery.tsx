@@ -6,29 +6,13 @@ import { SkinCard } from "@/components/gallery/skin-card";
 import { Badge } from "@/components/ui/badge";
 import { downloadSkinImage, downloadSkins } from "@/lib/download";
 import { openSkinPreview } from "@/lib/inspect";
+import { createSkinSearchIndex, searchSkins } from "@/lib/search";
 import { CATEGORIES, type CategoryFilter, type Skin } from "@/types/skin";
 
 type GalleryProps = {
   skins: Skin[];
   generatedAt: string;
 };
-
-function matchesQuery(skin: Skin, query: string): boolean {
-  const haystack = [
-    skin.name,
-    skin.weapon,
-    skin.pattern,
-    skin.category,
-    skin.rarity,
-    skin.paintIndex,
-    String(skin.weaponDefIndex),
-    skin.releasedInCs2 ? "cs2" : "csgo",
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(query.trim().toLowerCase());
-}
 
 export function Gallery({ skins, generatedAt }: GalleryProps) {
   const [query, setQuery] = useState("");
@@ -45,12 +29,17 @@ export function Gallery({ skins, generatedAt }: GalleryProps) {
     return next;
   }, [skins]);
 
+  const searchIndex = useMemo(() => createSkinSearchIndex(skins), [skins]);
+
   const filteredSkins = useMemo(() => {
-    return skins.filter((skin) => {
-      const categoryMatches = category === "All" || skin.category === category;
-      return categoryMatches && matchesQuery(skin, query);
-    });
-  }, [skins, category, query]);
+    const searched = searchSkins(skins, searchIndex, query);
+
+    if (category === "All") {
+      return searched;
+    }
+
+    return searched.filter((skin) => skin.category === category);
+  }, [skins, searchIndex, query, category]);
 
   async function handleDownloadAll(): Promise<void> {
     setDownloadingAll(true);
